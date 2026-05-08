@@ -48,3 +48,17 @@ Thumbs.db
 # Sensitive local notes（含 SSH/TURN/账号密码，仅本地保留）
 claude.md
 CLAUDE.md
+
+# JetBrains
+**/.idea/
+**/*.iml
+**/*.ipr
+**/*.iws
+
+# Flutter ephemeral build artifacts
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/ios/Pods/
+**/ios/.symlinks/
