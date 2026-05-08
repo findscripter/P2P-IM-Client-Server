@@ -1,0 +1,26 @@
+[Unit]
+Description=continuwuity Matrix Server
+Documentation=https://github.com/continuwuity/continuwuity
+After=network.target
+Wants=network-online.target
+
+[Service]
+User=continuwuity
+Group=continuwuity
+WorkingDirectory=/var/lib/continuwuity
+ExecStart=/usr/local/bin/continuwuity
+Environment="CONDUWUIT_CONFIG=/etc/continuwuity/continuwuity.toml"
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=65535
+LimitNPROC=8192
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/continuwuity
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

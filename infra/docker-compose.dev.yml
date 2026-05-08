@@ -1,0 +1,53 @@
+# 本地开发环境：双 homeserver + coturn
+# 用法: docker compose -f infra/docker-compose.dev.yml up -d
+
+version: "3.9"
+
+services:
+  # Server A (Alice)
+  continuwuity-a:
+    image: ghcr.io/continuwuity/continuwuity:latest
+    container_name: continuwuity-a
+    ports:
+      - "6167:6167"
+    volumes:
+      - ./continuwuity/continuwuity-a.toml:/etc/continuwuity/continuwuity.toml
+      - continuwuity-a-data:/var/lib/continuwuity
+    networks:
+      - matrix-net
+
+  # Server B (施歌)
+  continuwuity-b:
+    image: ghcr.io/continuwuity/continuwuity:latest
+    container_name: continuwuity-b
+    ports:
+      - "6168:6167"
+    volumes:
+      - ./continuwuity/continuwuity-b.toml:/etc/continuwuity/continuwuity.toml
+      - continuwuity-b-data:/var/lib/continuwuity
+    networks:
+      - matrix-net
+
+  # coturn TURN server
+  coturn:
+    image: coturn/coturn:latest
+    container_name: coturn-dev
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+    command: >
+      -n
+      --realm=localhost
+      --lt-cred-mech
+      --user=testuser:testpass
+      --log-file=stdout
+    networks:
+      - matrix-net
+
+volumes:
+  continuwuity-a-data:
+  continuwuity-b-data:
+
+networks:
+  matrix-net:
+    driver: bridge
