@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:matrix/matrix.dart';
+import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/portal_avatar.dart';
+import '../../core/theme/design_tokens.dart';
+import '../../core/theme/app_theme.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -17,39 +22,72 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final client = ref.watch(matrixClientProvider);
+    final t = context.tk;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Portal IM'),
+        title: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: t.accent.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(color: t.accent.withValues(alpha: 0.4)),
+              ),
+              alignment: Alignment.center,
+              child: Icon(LucideIcons.message_square,
+                  size: 12, color: t.accent),
+            ),
+            const SizedBox(width: 8),
+            Text('Portal IM',
+                style:
+                    AppTheme.mono(size: 15, weight: FontWeight.w700, color: t.text)),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: Icon(LucideIcons.search, size: 18, color: t.text),
             onPressed: () => context.push('/search'),
           ),
           IconButton(
-            icon: const Icon(Icons.person_outline),
+            icon: Icon(LucideIcons.settings, size: 18, color: t.text),
             onPressed: () => context.push('/settings'),
           ),
+          const SizedBox(width: 4),
         ],
       ),
-      body: _tab == 0
-          ? _ChatList(client: client)
-          : _tab == 1
-              ? _ContactList(client: client)
-              : _MePage(client: client),
+      body: switch (_tab) {
+        0 => _ChatList(client: client),
+        1 => _ContactList(client: client),
+        _ => _MePage(client: client),
+      },
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: '消息'),
-          NavigationDestination(icon: Icon(Icons.people_outline), label: '联系人'),
-          NavigationDestination(icon: Icon(Icons.person_outline), label: '我'),
+          NavigationDestination(
+            icon: Icon(LucideIcons.message_square, size: 18),
+            selectedIcon: Icon(LucideIcons.message_square, size: 18),
+            label: '消息',
+          ),
+          NavigationDestination(
+            icon: Icon(LucideIcons.users, size: 18),
+            selectedIcon: Icon(LucideIcons.users, size: 18),
+            label: '联系人',
+          ),
+          NavigationDestination(
+            icon: Icon(LucideIcons.user, size: 18),
+            selectedIcon: Icon(LucideIcons.user, size: 18),
+            label: '我',
+          ),
         ],
       ),
       floatingActionButton: _tab == 0
           ? FloatingActionButton(
               onPressed: () => context.push('/add-contact'),
-              child: const Icon(Icons.add),
+              child: const Icon(LucideIcons.plus, size: 22),
             )
           : null,
     );
@@ -63,33 +101,140 @@ class _ChatList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rooms = client.rooms;
+    final t = context.tk;
+
     if (rooms.isEmpty) {
-      return const Center(child: Text('暂无会话，点击 + 添加联系人'));
+      return _Empty(
+        icon: LucideIcons.message_square_dashed,
+        title: '暂无会话',
+        subtitle: '点击 + 添加联系人开始聊天',
+      );
     }
-    return ListView.builder(
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
       itemCount: rooms.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, i) {
         final room = rooms[i];
-        final isDm = room.isDirectChat;
-        return ListTile(
-          leading: CircleAvatar(
-            child: Text(room.getLocalizedDisplayname().characters.first.toUpperCase()),
-          ),
-          title: Text(room.getLocalizedDisplayname()),
-          subtitle: Text(
-            room.lastEvent?.body ?? '',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: room.notificationCount > 0
-              ? Badge(label: Text('${room.notificationCount}'))
-              : null,
-          onTap: () => isDm
-              ? context.push('/chat/${Uri.encodeComponent(room.id)}')
-              : context.push('/group/${Uri.encodeComponent(room.id)}'),
-        );
+        return _ChatTile(room: room, t: t);
       },
     );
+  }
+}
+
+class _ChatTile extends StatelessWidget {
+  const _ChatTile({required this.room, required this.t});
+  final Room room;
+  final PortalTokens t;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDm = room.isDirectChat;
+    final name = room.getLocalizedDisplayname();
+    final lastEvent = room.lastEvent;
+    final mxid = room.directChatMatrixID ?? '';
+    final unread = room.notificationCount;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => isDm
+            ? context.push('/chat/${Uri.encodeComponent(room.id)}')
+            : context.push('/group/${Uri.encodeComponent(room.id)}'),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: t.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: t.border),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PortalAvatar(seed: name, size: 44),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTheme.sans(
+                                  size: 15,
+                                  weight: FontWeight.w600,
+                                  color: t.text)),
+                        ),
+                        if (lastEvent != null)
+                          Text(
+                              _formatTime(
+                                  lastEvent.originServerTs.millisecondsSinceEpoch),
+                              style: AppTheme.mono(
+                                  size: 11, color: t.textMute)),
+                      ],
+                    ),
+                    if (isDm && mxid.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(mxid,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTheme.mono(
+                                size: 11, color: t.accentCool)),
+                      ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            lastEvent?.body ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTheme.sans(
+                                size: 13, color: t.textMute),
+                          ),
+                        ),
+                        if (unread > 0) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: t.accent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text('$unread',
+                                style: AppTheme.mono(
+                                    size: 10,
+                                    color: Colors.black,
+                                    weight: FontWeight.w700)),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatTime(int ts) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+    final now = DateTime.now();
+    if (now.difference(dt).inDays == 0) return DateFormat('HH:mm').format(dt);
+    if (now.difference(dt).inDays == 1) return '昨天';
+    if (now.difference(dt).inDays < 7) return DateFormat('EEE', 'zh').format(dt);
+    return DateFormat('MM/dd').format(dt);
   }
 }
 
@@ -99,35 +244,41 @@ class _ContactList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.tk;
     final dmRooms = client.rooms.where((r) => r.isDirectChat).toList();
-    return Column(
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
       children: [
-        ListTile(
-          leading: const Icon(Icons.person_add_outlined),
-          title: const Text('添加联系人'),
+        _ActionTile(
+          icon: LucideIcons.user_plus,
+          label: '添加联系人',
+          subtitle: '通过域名',
           onTap: () => context.push('/add-contact'),
         ),
-        ListTile(
-          leading: const Icon(Icons.notifications_outlined),
-          title: const Text('好友申请'),
+        const SizedBox(height: 8),
+        _ActionTile(
+          icon: LucideIcons.bell_dot,
+          label: '好友/群邀请',
+          subtitle: 'Pending',
           onTap: () => context.push('/requests'),
         ),
-        const Divider(),
-        Expanded(
-          child: ListView.builder(
-            itemCount: dmRooms.length,
-            itemBuilder: (context, i) {
-              final room = dmRooms[i];
-              return ListTile(
-                leading: CircleAvatar(
-                  child: Text(room.getLocalizedDisplayname().characters.first.toUpperCase()),
-                ),
-                title: Text(room.getLocalizedDisplayname()),
-                onTap: () => context.push('/contact/${Uri.encodeComponent(room.directChatMatrixID ?? '')}'),
-              );
-            },
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            '联系人 (${dmRooms.length})',
+            style: AppTheme.mono(
+                size: 11,
+                color: t.textMute,
+                weight: FontWeight.w600),
           ),
         ),
+        const SizedBox(height: 8),
+        ...dmRooms.map((room) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _ChatTile(room: room, t: t),
+            )),
       ],
     );
   }
@@ -139,40 +290,135 @@ class _MePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.tk;
     final userId = client.userID ?? '';
     final domain = userId.contains(':') ? userId.split(':').last : userId;
+
     return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 24, 12, 24),
       children: [
-        const SizedBox(height: 24),
-        CircleAvatar(radius: 40, child: Text(domain.isNotEmpty ? domain[0].toUpperCase() : '?')),
-        const SizedBox(height: 12),
-        FutureBuilder<Profile?>(
-          future: client.userID != null
-              ? client.getProfileFromUserId(client.userID!)
-              : Future.value(null),
-          builder: (_, snap) => Text(
-            snap.data?.displayName ?? '未设置昵称',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleLarge,
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: t.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: t.border),
+          ),
+          child: Column(
+            children: [
+              PortalAvatar(seed: domain, size: 64),
+              const SizedBox(height: 12),
+              FutureBuilder<Profile?>(
+                future: client.userID != null
+                    ? client.getProfileFromUserId(client.userID!)
+                    : Future.value(null),
+                builder: (_, snap) => Text(
+                  snap.data?.displayName ?? '未设置昵称',
+                  style: AppTheme.sans(
+                      size: 18, weight: FontWeight.w600, color: t.text),
+                ),
+              ),
+              const SizedBox(height: 4),
+              PortalMxid(userId, size: 12),
+            ],
           ),
         ),
-        Text(domain, textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 24),
-        const Divider(),
-        ListTile(
-          leading: const Icon(Icons.settings_outlined),
-          title: const Text('设置'),
+        const SizedBox(height: 16),
+        _ActionTile(
+          icon: LucideIcons.settings,
+          label: '设置',
           onTap: () => context.push('/settings'),
         ),
-        ListTile(
-          leading: const Icon(Icons.logout),
-          title: const Text('退出登录'),
+        const SizedBox(height: 8),
+        _ActionTile(
+          icon: LucideIcons.log_out,
+          label: '退出登录',
+          danger: true,
           onTap: () async {
             await ref.read(authStateNotifierProvider.notifier).logout();
           },
         ),
       ],
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.icon,
+    required this.label,
+    this.subtitle,
+    this.onTap,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tk;
+    final color = danger ? t.danger : t.text;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: t.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: t.border),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(label,
+                    style: AppTheme.sans(
+                        size: 14, weight: FontWeight.w500, color: color)),
+              ),
+              if (subtitle != null) ...[
+                Text(subtitle!,
+                    style: AppTheme.mono(size: 11, color: t.textMute)),
+                const SizedBox(width: 6),
+              ],
+              Icon(LucideIcons.chevron_right, size: 16, color: t.textMute),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Empty extends StatelessWidget {
+  const _Empty({required this.icon, required this.title, required this.subtitle});
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tk;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 32, color: t.textMute),
+          const SizedBox(height: 12),
+          Text(title,
+              style: AppTheme.sans(
+                  size: 14, color: t.text, weight: FontWeight.w500)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: AppTheme.sans(size: 12, color: t.textMute)),
+        ],
+      ),
     );
   }
 }

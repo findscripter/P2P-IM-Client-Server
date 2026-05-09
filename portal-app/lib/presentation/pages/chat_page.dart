@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:matrix/matrix.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/chat_widgets.dart';
+import '../widgets/portal_avatar.dart';
+import '../../core/theme/design_tokens.dart';
+import '../../core/theme/app_theme.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key, required this.roomId});
@@ -52,38 +56,98 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   Widget build(BuildContext context) {
     final room = _room;
-    if (room == null) return const Scaffold(body: Center(child: Text('会话不存在')));
+    final t = context.tk;
+    if (room == null) {
+      return const Scaffold(body: Center(child: Text('会话不存在')));
+    }
+
     final events = _timeline?.events
-        .where((e) => e.type == EventTypes.Message)
-        .toList()
-        .reversed
-        .toList() ?? [];
+            .where((e) => e.type == EventTypes.Message)
+            .toList()
+            .reversed
+            .toList() ??
+        [];
+
+    final mxid = room.directChatMatrixID ?? '';
+    final name = room.getLocalizedDisplayname();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(room.getLocalizedDisplayname()),
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            PortalAvatar(seed: name, size: 32),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.sans(
+                          size: 14,
+                          weight: FontWeight.w600,
+                          color: t.text)),
+                  if (mxid.isNotEmpty)
+                    Text(mxid,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            AppTheme.mono(size: 11, color: t.accentCool)),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.video_call_outlined),
-            onPressed: () => context.push('/call/${Uri.encodeComponent(widget.roomId)}'),
+            icon: Icon(LucideIcons.phone, size: 18, color: t.text),
+            onPressed: () => context.push(
+                '/call/${Uri.encodeComponent(widget.roomId)}'),
           ),
           IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => context.push('/contact/${Uri.encodeComponent(room.directChatMatrixID ?? '')}'),
+            icon: Icon(LucideIcons.video, size: 18, color: t.text),
+            onPressed: () => context.push(
+                '/call/${Uri.encodeComponent(widget.roomId)}'),
           ),
+          IconButton(
+            icon: Icon(LucideIcons.info, size: 18, color: t.text),
+            onPressed: () => context.push(
+                '/contact/${Uri.encodeComponent(mxid)}'),
+          ),
+          const SizedBox(width: 4),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: t.border),
+        ),
       ),
       body: Column(
         children: [
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    reverse: true,
-                    padding: const EdgeInsets.all(8),
-                    itemCount: events.length,
-                    itemBuilder: (context, i) => MessageBubble(event: events[i]),
-                  ),
+                ? Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: t.accent),
+                    ),
+                  )
+                : events.isEmpty
+                    ? Center(
+                        child: Text('开始你们的第一条消息',
+                            style: AppTheme.sans(
+                                size: 13, color: t.textMute)))
+                    : ListView.builder(
+                        reverse: true,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        itemCount: events.length,
+                        itemBuilder: (context, i) =>
+                            MessageBubble(event: events[i]),
+                      ),
           ),
           MessageInputBar(ctrl: _msgCtrl, onSend: _send, room: room),
         ],
