@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +19,24 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   int _tab = 0;
+  StreamSubscription<SyncUpdate>? _syncSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // 订阅 client.onSync,任何 /sync 周期触发就重建,
+    // 让会话列表的 lastEvent / notificationCount / 新房间 实时更新。
+    final client = ref.read(matrixClientProvider);
+    _syncSub = client.onSync.stream.listen((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _syncSub?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
