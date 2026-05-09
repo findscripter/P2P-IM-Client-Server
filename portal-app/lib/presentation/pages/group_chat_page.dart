@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -29,9 +30,39 @@ class _GroupChatPageState extends ConsumerState<GroupChatPage> {
   Future<void> _initTimeline() async {
     final room = _room;
     if (room == null) return;
-    _timeline = await room.getTimeline(onUpdate: () => setState(() {}));
-    await room.requestHistory(historyCount: 50);
+    void rebuild() {
+      if (mounted) setState(() {});
+    }
+
+    try {
+      _timeline = await room.getTimeline(
+        onUpdate: rebuild,
+        onChange: (_) => rebuild(),
+        onInsert: (_) => rebuild(),
+        onRemove: (_) => rebuild(),
+      );
+    } on Object catch (e) {
+      debugPrint('getTimeline failed: $e');
+    }
     if (mounted) setState(() => _loading = false);
+    final tl = _timeline;
+    if (tl != null) {
+      unawaited(() async {
+        var attempts = 0;
+        while (attempts < 5 &&
+            tl.canRequestHistory &&
+            tl.events.where((e) => e.type == EventTypes.Message).length < 50) {
+          try {
+            await tl.requestHistory(historyCount: 30);
+          } on Object catch (e) {
+            debugPrint('timeline.requestHistory failed: $e');
+            break;
+          }
+          attempts++;
+        }
+        if (mounted) setState(() {});
+      }());
+    }
   }
 
   @override
@@ -54,8 +85,6 @@ class _GroupChatPageState extends ConsumerState<GroupChatPage> {
     if (room == null) return const Scaffold(body: Center(child: Text('群组不存在')));
     final events = _timeline?.events
         .where((e) => e.type == EventTypes.Message)
-        .toList()
-        .reversed
         .toList() ?? [];
 
     return Scaffold(

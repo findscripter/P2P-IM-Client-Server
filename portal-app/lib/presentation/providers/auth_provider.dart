@@ -5,12 +5,18 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'auth_provider.g.dart';
 
-// Matrix client singleton.
-// TODO Day 2: 切换到 MatrixSdkDatabase + path_provider 实现持久化。
-// 当前内存模式仅用于开发期联调；登录态由 flutter_secure_storage 兜底，重启会重新 sync。
+// Matrix client singleton — 持久化到 IndexedDB（Web）或 SQLite（Native）。
+// 不持久化的话，每次进入聊天页 Timeline.events 会是空（/sync 没存盘），历史拉不回。
 @riverpod
 Client matrixClient(Ref ref) {
-  return Client('PortalIM');
+  return Client(
+    'PortalIM',
+    databaseBuilder: (_) async {
+      final db = MatrixSdkDatabase('portal_im_db');
+      await db.open();
+      return db;
+    },
+  );
 }
 
 class AuthState {

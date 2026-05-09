@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,9 +35,43 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   Future<void> _initTimeline() async {
     final room = _room;
     if (room == null) return;
-    _timeline = await room.getTimeline(onUpdate: () => setState(() {}));
-    await room.requestHistory(historyCount: 50);
+    void rebuild() {
+      if (mounted) setState(() {});
+    }
+
+    try {
+      _timeline = await room.getTimeline(
+        onUpdate: rebuild,
+        onChange: (_) => rebuild(),
+        onInsert: (_) => rebuild(),
+        onRemove: (_) => rebuild(),
+      );
+    } on Object catch (e) {
+      debugPrint('getTimeline failed: $e');
+    }
     if (mounted) setState(() => _loading = false);
+    // 灌历史进 Timeline（timeline 级，不是 room 级）
+    final tl = _timeline;
+    if (tl != null) {
+      unawaited(_backfillHistory(tl));
+    }
+  }
+
+  Future<void> _backfillHistory(Timeline timeline) async {
+    // 拉够 50 条历史；matrix SDK 单次返回有限，需要循环
+    var attempts = 0;
+    while (attempts < 5 &&
+        timeline.canRequestHistory &&
+        timeline.events.where((e) => e.type == EventTypes.Message).length < 50) {
+      try {
+        await timeline.requestHistory(historyCount: 30);
+      } on Object catch (e) {
+        debugPrint('timeline.requestHistory failed: $e');
+        break;
+      }
+      attempts++;
+    }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -61,10 +96,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       return const Scaffold(body: Center(child: Text('会话不存在')));
     }
 
+    // Timeline.events is newest-first; ListView reverse:true puts index 0 at
+    // bottom — so we keep newest-first to render newest at the bottom.
     final events = _timeline?.events
             .where((e) => e.type == EventTypes.Message)
-            .toList()
-            .reversed
             .toList() ??
         [];
 
