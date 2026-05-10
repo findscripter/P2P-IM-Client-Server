@@ -310,7 +310,7 @@ Future<void> _showCreateGroupDialog(
 
   try {
     final roomId = await client.createRoom(
-      displayName: name,
+      name: name,
       invite: invites,
       preset: CreateRoomPreset.privateChat,
       isDirect: false,
