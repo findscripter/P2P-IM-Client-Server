@@ -257,6 +257,73 @@ class _ChatTile extends StatelessWidget {
   }
 }
 
+Future<void> _showCreateGroupDialog(
+    BuildContext context, Client client) async {
+  final nameCtrl = TextEditingController();
+  final inviteCtrl = TextEditingController();
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('创建群组'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: nameCtrl,
+            decoration: const InputDecoration(labelText: '群名称'),
+            autofocus: true,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: inviteCtrl,
+            decoration: const InputDecoration(
+              labelText: '邀请成员（可选）',
+              hintText: '@owner:example.com，多个用逗号分隔',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: const Text('创建'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true || !context.mounted) return;
+  final name = nameCtrl.text.trim();
+  if (name.isEmpty) return;
+
+  final invites = inviteCtrl.text
+      .split(',')
+      .map((s) => s.trim())
+      .where((s) => s.startsWith('@'))
+      .toList();
+
+  try {
+    final roomId = await client.createRoom(
+      displayName: name,
+      invite: invites,
+      preset: CreateRoomPreset.privateChat,
+      isDirect: false,
+    );
+    if (context.mounted) context.push('/group/${Uri.encodeComponent(roomId)}');
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('创建失败: $e')));
+    }
+  }
+}
+
 class _ContactList extends ConsumerWidget {
   const _ContactList({required this.client});
   final Client client;
@@ -274,6 +341,13 @@ class _ContactList extends ConsumerWidget {
           label: '添加联系人',
           subtitle: '通过域名',
           onTap: () => context.push('/add-contact'),
+        ),
+        const SizedBox(height: 8),
+        _ActionTile(
+          icon: LucideIcons.users,
+          label: '创建群组',
+          subtitle: '邀请联系人',
+          onTap: () => _showCreateGroupDialog(context, client),
         ),
         const SizedBox(height: 8),
         _ActionTile(

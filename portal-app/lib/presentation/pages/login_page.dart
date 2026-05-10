@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../../core/theme/design_tokens.dart';
@@ -18,6 +19,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _passwordCtrl = TextEditingController();
   bool _loading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLastDomain();
+  }
+
+  Future<void> _loadLastDomain() async {
+    const storage = FlutterSecureStorage();
+    final hs = await storage.read(key: 'matrix_homeserver');
+    if (hs != null && mounted && _domainCtrl.text.isEmpty) {
+      final host = Uri.tryParse(hs)?.host ?? '';
+      if (host.isNotEmpty) setState(() => _domainCtrl.text = host);
+    }
+  }
 
   @override
   void dispose() {
