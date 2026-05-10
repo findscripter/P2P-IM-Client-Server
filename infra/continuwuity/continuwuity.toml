@@ -1,12 +1,9 @@
 # continuwuity 配置模板
-# 部署时复制到 /etc/continuwuity/continuwuity.toml，替换 PLACEHOLDER 值
-#
-# Server A: server_name = "185-115-207-219.nip.io"
-# Server B: server_name = "liyananp2p.com"
+# 复制到服务器 /etc/continuwuity/continuwuity.toml，填入实际值
 
 [global]
-# 改成实际域名（与 nginx server_name 一致）
-server_name = "YOUR_DOMAIN"
+# 你的域名（和 nginx server_name 一致）
+server_name = "liyananp2p.com"        # 改成实际域名
 
 # 监听地址（nginx 反代过来）
 port = 6167
@@ -15,26 +12,21 @@ address = "127.0.0.1"
 # 数据库目录
 database_path = "/var/lib/continuwuity"
 
-# 最大请求体大小（文件传输用）
-max_request_size = 104857600  # 100 MB
+# 最大请求体大小（文件传输）
+max_request_size = 104857600          # 100 MB
 
-# 注册（初始化时开启，稳定后关闭或改用 registration_token）
+# 注册（新系统初始化时开启，稳定后关闭）
 allow_registration = true
-# registration_token = "REPLACE_WITH_SECURE_TOKEN"
+# registration_token = "your-secret-token-here"   # 生产时启用注册 token
 
-# Federation（P2P 核心，必须开启）
+# Federation
 allow_federation = true
 
-# TURN（WebRTC 通话穿透）
-# Server A coturn: turn:185.115.207.219:3478
-# turn_password 见 /root/turn-credentials.txt，不提交到代码仓库
-turn_uris = [
-    "turn:185.115.207.219:3478?transport=udp",
-    "turn:185.115.207.219:3478?transport=tcp"
-]
+# TURN（WebRTC 通话）
+turn_uris = ["turn:185.115.207.219:3478?transport=udp", "turn:185.115.207.219:3478?transport=tcp"]
+turn_secret = ""                      # 改成 /root/turn-credentials.txt 中的密码
 turn_username = "agentp2p"
-turn_password = "REPLACE_WITH_TURN_PASSWORD"  # 见 /root/turn-credentials.txt
 turn_ttl = 86400
 
-# 日志级别
+# 日志
 log = "info"
